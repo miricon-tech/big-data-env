@@ -1,0 +1,37 @@
+name: bigdata
+channels:
+  - conda-forge
+dependencies:
+  # Python base
+  - python=3.10
+
+  # PySpark (בשביל מחברת פייתון מול הקלאסטר)
+  - pyspark=3.5.3
+
+  # Data & IO
+  - pandas
+  - numpy
+  - pyarrow=16.* # המלצה ליישור עם Spark 3.5.x
+  - fastparquet
+
+  # DS (לבחירה)
+  - scikit-learn
+  - xgboost
+  - lightgbm
+  - dask
+
+  # Jupyter
+  - jupyterlab
+  - ipykernel
+  - ipywidgets # נוח לאינטרקטיביות (אופציונלי)
+
+  # Viz
+  - matplotlib
+  - seaborn
+
+  - pip
+  - pip:
+      - hdfs==2.7.0
+      - mlflow
+      - great_expectations
+      # (אין צורך להוסיף toree כאן אם הוא מותקן ב-Dockerfile)

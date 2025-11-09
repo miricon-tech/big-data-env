@@ -1,0 +1,37 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 0,
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "CPU (cores) - Jupyter & Spark",
+      "targets": [
+        {
+          "expr": "sum by (name) (rate(container_cpu_usage_seconds_total{name=~\".*/(jupyter|spark-master|spark-worker-1|spark-worker-2)\"}[1m]))",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": { "legend": { "showLegend": true } },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 0 }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory (bytes) - Jupyter & Spark",
+      "targets": [
+        {
+          "expr": "container_memory_working_set_bytes{name=~\".*/(jupyter|spark-master|spark-worker-1|spark-worker-2)\"}",
+          "legendFormat": "{{name}}"
+        }
+      ],
+      "options": { "legend": { "showLegend": true } },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 }
+    }
+  ],
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["spark", "jupyter", "cadvisor"],
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "Spark & Jupyter - Overview",
+  "version": 1
+}

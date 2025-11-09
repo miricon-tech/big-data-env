@@ -1,0 +1,111 @@
+networks:
+  bigdata-net: {}
+
+volumes:
+  minio-data:
+  grafana-data:
+  prometheus-data:
+
+services:
+  # -------- Spark History Server --------
+  spark-history:
+    image: apache/spark:${SPARK_IMAGE_TAG}
+    platform: linux/arm64
+    container_name: spark-history
+    hostname: spark-history
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.history.HistoryServer",
+      ]
+    environment:
+      SPARK_NO_DAEMONIZE: "true"
+      HADOOP_CONF_DIR: /etc/hadoop/conf
+      SPARK_CONF_DIR: /etc/hadoop/conf
+      SPARK_HISTORY_OPTS: "-Dspark.history.fs.logDirectory=hdfs://namenode:8020/spark-events -Dspark.history.ui.port=18080"
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+    ports: ["18080:18080"]
+    depends_on:
+      namenode:
+        condition: service_healthy
+    networks: [bigdata-net]
+
+  # -------- MinIO (S3-compatible) --------
+  minio:
+    image: minio/minio:latest
+    platform: linux/arm64
+    container_name: minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000" # S3 API
+      - "9001:9001" # Console
+    volumes:
+      - minio-data:/data
+    networks: [bigdata-net]
+
+  # -------- Prometheus --------
+  prometheus:
+    image: prom/prometheus:latest
+    platform: linux/arm64
+    container_name: prometheus
+    command:
+      [
+        "--config.file=/etc/prometheus/prometheus.yml",
+        "--storage.tsdb.path=/prometheus",
+      ]
+    volumes:
+      - prometheus-data:/prometheus
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["9090:9090"]
+    networks: [bigdata-net]
+
+  # -------- Grafana (עם פרוביז'נינג) --------
+  grafana:
+    image: grafana/grafana:latest
+    platform: linux/arm64
+    container_name: grafana
+    depends_on: [prometheus]
+    ports: ["3000:3000"]
+    networks: [bigdata-net]
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+
+  # -------- cAdvisor (שינוי פורט כדי לא להתנגש עם Spark UI 8080) --------
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    platform: linux/arm64
+    container_name: cadvisor
+    privileged: true
+    ports: ["8089:8080"]
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:rw
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    networks: [bigdata-net]
+
+  # -------- Bootstrap חד-פעמי ליצירת /spark-events ב-HDFS --------
+  hdfs-bootstrap:
+    image: packet23/hadoop-hdfs-namenode:3.4-arm64
+    platform: linux/arm64
+    container_name: hdfs-bootstrap
+    networks: [bigdata-net]
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      HADOOP_CLIENT_OPTS: "-Dlog4j.configurationFile=/etc/hadoop/conf/log4j2.properties"
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+    entrypoint: ["/bin/bash", "-lc"]
+    command: >
+      hdfs dfs -mkdir -p /spark-events &&
+      hdfs dfs -chmod -R 777 /spark-events
+    restart: "no"

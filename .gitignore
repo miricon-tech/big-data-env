@@ -1,0 +1,17 @@
+.DS_Store
+__pycache__/
+.ipynb_checkpoints/
+.vscode/
+.history/
+.metals/
+notebooks/.Trash-0/
+scala-app/.bloop/
+scala-app/**/target/
+data/
+output/
+models/
+mlruns/
+gx/
+grafana-data/
+prometheus-data/
+.env

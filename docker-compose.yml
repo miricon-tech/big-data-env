@@ -1,0 +1,224 @@
+networks:
+  bigdata-net: {}
+
+volumes:
+  namenode: {}
+  datanode_1: {}
+  spark-jars: {}
+  sbt-ivy: {}
+  coursier: {}
+
+# בסיס משותף ל־Spark (ARM + Java 11)
+x-spark-common: &spark-common
+  platform: linux/arm64
+  image: apache/spark:${SPARK_IMAGE_TAG}
+  networks: [bigdata-net]
+  environment:
+    SPARK_NO_DAEMONIZE: "true"
+    HADOOP_CONF_DIR: /etc/hadoop/conf
+    SPARK_CONF_DIR: /etc/hadoop/conf
+  volumes:
+    - ./hadoop-conf:/etc/hadoop/conf
+
+services:
+  # ===== HDFS =====
+  namenode:
+    image: packet23/hadoop-hdfs-namenode:3.4-arm64
+    platform: linux/arm64
+    container_name: namenode
+    hostname: namenode
+    ports:
+      - "9870:9870"
+      - "8020:8020"
+    networks: [bigdata-net]
+    environment:
+      HADOOP_CONF_DIR: /etc/hadoop/conf
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx${NN_HEAP:-1024m}"
+    volumes:
+      - namenode:/hdfs/name
+      - ./hadoop-conf:/etc/hadoop/conf
+      - ./data:/workspace/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9870"]
+      interval: 30s
+      timeout: 3s
+      retries: 5
+    user: "0:0"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        mkdir -p /hdfs/name &&
+        chown -R 121:121 /hdfs &&
+        chmod 700 /hdfs/name &&
+        if [ ! -f /hdfs/name/current/VERSION ]; then
+          echo "[NN] First boot: formatting..."; hdfs namenode -format -nonInteractive || true;
+        fi &&
+        echo "[NN] Starting NameNode..." &&
+        exec hdfs namenode
+
+  datanode_1:
+    image: packet23/hadoop-hdfs-datanode:3.4-arm64
+    platform: linux/arm64
+    container_name: datanode_1
+    hostname: datanode-1
+    ports:
+      - "9864:9864"
+    networks:
+      - bigdata-net
+    depends_on:
+      namenode:
+        condition: service_healthy
+    environment:
+      HADOOP_CONF_DIR: /etc/hadoop/conf
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx${DN_HEAP:-1536m}"
+    volumes:
+      - datanode_1:/hdfs/data
+      - ./hadoop-conf:/etc/hadoop/conf
+    user: "0:0"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >
+        mkdir -p /hdfs/data &&
+        chown -R 121:121 /hdfs &&
+        exec hdfs datanode
+
+  # ===== Spark =====
+  spark-master:
+    <<: *spark-common
+    container_name: spark-master
+    hostname: spark-master
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+      - spark-jars:/opt/spark/jars
+    ports:
+      - "7077:7077"
+      - "8080:8080"
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.master.Master",
+        "--host",
+        "spark-master",
+        "--port",
+        "7077",
+        "--webui-port",
+        "8080",
+      ]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  spark-worker-1:
+    <<: *spark-common
+    container_name: spark-worker-1
+    hostname: spark-worker-1
+    depends_on: [spark-master]
+    environment:
+      SPARK_WORKER_CORES: "${W1_CORES:-2}"
+      SPARK_WORKER_MEMORY: "${W1_MEM:-3G}"
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.worker.Worker",
+        "spark://spark-master:7077",
+        "--webui-port",
+        "8081",
+      ]
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+      - spark-jars:/opt/spark/jars
+    ports:
+      - "8081:8081"
+
+  spark-worker-2:
+    <<: *spark-common
+    container_name: spark-worker-2
+    hostname: spark-worker-2
+    depends_on: [spark-master]
+    environment:
+      SPARK_WORKER_CORES: "${W2_CORES:-2}"
+      SPARK_WORKER_MEMORY: "${W2_MEM:-3G}"
+    command:
+      [
+        "/opt/spark/bin/spark-class",
+        "org.apache.spark.deploy.worker.Worker",
+        "spark://spark-master:7077",
+        "--webui-port",
+        "8082",
+      ]
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+      - spark-jars:/opt/spark/jars
+    ports:
+      - "8082:8082"
+
+  # ===== Jupyter (Micromamba) =====
+  jupyter:
+    build:
+      context: ./jupyter
+      dockerfile: Dockerfile
+      args:
+        SPARK_IMAGE_TAG: ${SPARK_IMAGE_TAG} # חשוב! מעביר את תג הספארק לדוקרפייל
+    image: local/jupyter-mamba:${PYSPARK_VERSION:-3.5.3}-py${PYTHON_VERSION:-3.10}
+    platform: linux/arm64
+    container_name: jupyter
+    networks: [bigdata-net]
+    depends_on:
+      namenode:
+        condition: service_healthy
+      spark-master:
+        condition: service_started
+    environment:
+      # קונפיג משותף לקלאסטר
+      SPARK_CONF_DIR: /etc/hadoop/conf
+      HADOOP_CONF_DIR: /etc/hadoop/conf
+
+      # זה מועיל לקרנל פייתון (PySpark). לקרנל סקאלה (Toree) לא חובה,
+      # כי כבר צרבנו --master בזמן ההתקנה.
+      PYSPARK_SUBMIT_ARGS: >
+        --master spark://spark-master:7077
+        --conf spark.driver.bindAddress=0.0.0.0
+        --conf spark.driver.host=jupyter
+        pyspark-shell
+    command: >
+      micromamba run -n bigdata jupyter lab
+      --ip=0.0.0.0 --port=8888 --allow-root --NotebookApp.token=''
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+      - ./notebooks:/workspace
+      - ./data:/workspace/data
+      - ./output:/workspace/output
+      - ./models:/workspace/models
+      - ./scala-app:/workspace/scala-app
+      - spark-jars:/opt/spark/extra-jars
+      - ./mlruns:/workspace/mlruns
+      - ./gx:/workspace/great_expectations
+    ports:
+      - "8888:8888"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8888/api"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  # ===== Scala driver =====
+  spark-driver:
+    <<: *spark-common
+    container_name: spark-driver
+    hostname: spark-driver
+    platform: linux/arm64
+    depends_on:
+      spark-master:
+        condition: service_started
+    environment:
+      SPARK_SUBMIT_OPTS: "-Dspark.driver.bindAddress=0.0.0.0 -Dspark.driver.host=spark-driver"
+    volumes:
+      - ./hadoop-conf:/etc/hadoop/conf
+      - ./scala-app:/workspace/scala-app
+      - ./data:/workspace/data
+      - spark-jars:/opt/spark/extra-jars # אם צריך קונקטורים/ספריות נוספות
+      - sbt-ivy:/root/.ivy2 # קאש sbt
+      - coursier:/root/.cache/coursier # קאש coursier
+    command: ["bash", "-lc", "tail -f /dev/null"]
