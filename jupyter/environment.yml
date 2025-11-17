@@ -5,33 +5,60 @@ dependencies:
   # Python base
   - python=3.10
 
-  # PySpark (בשביל מחברת פייתון מול הקלאסטר)
+  # PySpark (תואם Spark 3.5.x)
   - pyspark=3.5.3
 
   # Data & IO
   - pandas
   - numpy
-  - pyarrow=16.* # המלצה ליישור עם Spark 3.5.x
+  - pyarrow=16.*
   - fastparquet
+  - dask
 
-  # DS (לבחירה)
+  # Machine Learning
   - scikit-learn
   - xgboost
   - lightgbm
-  - dask
 
-  # Jupyter
-  - jupyterlab
-  - ipykernel
-  - ipywidgets # נוח לאינטרקטיביות (אופציונלי)
-
-  # Viz
-  - matplotlib
-  - seaborn
-
-  - pip
+  # Deep Learning
   - pip:
+      - torch
+      - torchvision
+      - torchaudio
+      - tensorflow==2.15
+      - keras
+
+      # Storage / Pipelines
       - hdfs==2.7.0
       - mlflow
       - great_expectations
-      # (אין צורך להוסיף toree כאן אם הוא מותקן ב-Dockerfile)
+
+      # Feature Engineering
+      - category_encoders
+      - featuretools
+
+      # Explainability
+      - shap
+      - lime
+      - phik
+      - wordcloud
+
+      # Hyperparameter Tuning
+      - optuna
+
+      # NLP + Embeddings
+      - sentence-transformers
+      - transformers
+
+      # Auto-EDA
+      - pandas-profiling
+
+  # Jupyter & Dev
+  - jupyterlab
+  - ipykernel
+  - ipywidgets
+  - matplotlib
+  - seaborn
+  - plotly
+  - tqdm
+  - ipython
