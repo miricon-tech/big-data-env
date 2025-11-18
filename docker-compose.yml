@@ -187,22 +187,30 @@ services:
         condition: service_healthy
       spark-master:
         condition: service_started
+
+    # טוען משתני סביבה מקובץ .env בשורש הפרויקט
+    env_file:
+      - .env
+
     environment:
       # קונפיג משותף לקלאסטר
       SPARK_CONF_DIR: /etc/hadoop/conf
       HADOOP_CONF_DIR: /etc/hadoop/conf
 
+      # המפתח ל-OpenAI ייכנס מהסביבה (מתוך .env)
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
       # כאן python3 מצביע ל-env bigdata (בזכות ה-symlink בדוקרפייל)
       PYSPARK_PYTHON: python3
       PYSPARK_DRIVER_PYTHON: python3
 
-      # זה מועיל לקרנל פייתון (PySpark). לקרנל סקאלה (Toree) לא חובה,
-      # כי כבר צרבנו --master בזמן ההתקנה.
+      # זה מועיל לקרנל פייתון (PySpark)
       PYSPARK_SUBMIT_ARGS: >
         --master spark://spark-master:7077
         --conf spark.driver.bindAddress=0.0.0.0
         --conf spark.driver.host=jupyter
         pyspark-shell
+
     command: >
       micromamba run -n bigdata jupyter lab
       --ip=0.0.0.0 --port=8888 --allow-root --NotebookApp.token=''
@@ -223,7 +231,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 20
-
   # ===== Scala driver =====
   spark-driver:
     <<: *spark-common
