@@ -1,6 +1,6 @@
-## Analysis Notebooks (PySpark & Scala)
+## Analysis Notebooks (PySpark, Scala & LLM Insights)
 
-Under `notebooks/` you’ll find the main analysis and modeling work:
+Under `notebooks/` you’ll find the main analysis, modeling, and insight extraction work:
 
 - `cleaning_data.ipynb`  
   PySpark-based initial data cleaning and exploration.  
@@ -39,3 +39,10 @@ Under `notebooks/` you’ll find the main analysis and modeling work:
     - selecting an “optimal” k using elbow-like behavior, pseudo R² and Silhouette score
     - interpreting clusters as different household profiles (e.g. low-income/high-expense vs. high-income/high-savings)
   - filling missing `economic_class` values using the trained model and re-running analysis on the completed dataset.
+
+- `UseCase_LLM_Insights.ipynb`  
+  Experimental notebook using a language model (LLM) to:
+  - generate natural language summaries of clustering/grouped data
+  - interpret economic patterns per income decile or cluster
+  - provide business-ready narrative insights from structured Spark output  
+  This notebook uses a pipeline of Spark → JSON → LLM to automate insight generation from raw statistics.
