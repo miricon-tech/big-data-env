@@ -1,48 +1,103 @@
-## Analysis Notebooks (PySpark, Scala & LLM Insights)
+## 📊 Analysis Notebooks (PySpark, Scala & LLM Insights)
 
-Under `notebooks/` you’ll find the main analysis, modeling, and insight extraction work:
+Under the `notebooks/` folder, you'll find the main analysis, modeling, and insight extraction notebooks:
 
-- `cleaning_data.ipynb`  
-  PySpark-based initial data cleaning and exploration.  
-  Includes:
-  - loading the raw CSV into Spark
-  - handling empty / invalid values
-  - basic correlations between key features (salary, savings, expenses, education, economic_class)
-  - visualizations such as:
-    - `income_percentiles_histogram.png`
-    - `Avg_Years_Education_per_Income_Percentile_Group.png`
+---
 
-- `etl_scala.ipynb`  
-  Scala Spark notebook focusing on ETL and first profiling steps:
-  - column type checks
-  - numeric ranges per column
-  - missing-value statistics
-  - grouped aggregations using the Scala DataFrame API  
-  This shows the same logic implemented in Scala on top of the same Spark environment.
+### 🧹 `cleaning_data.ipynb`
 
-- `row-sector-ana.ipynb`  
-  Analysis of the dataset by salary deciles and work sector:
-  - splitting the population into income percentiles / deciles
-  - aggregations per decile and sector (counts, averages)
-  - examining how work sector distribution changes across income groups
-  - providing business-oriented interpretation of these patterns.
+PySpark-based initial data cleaning and exploration.
 
-- `UseCaseModle.ipynb`  
-  Main modeling and use-case notebook.  
-  Contains:
-  - feature engineering for financial and behavioral variables:
-    - `expense_ratio`, `disposable_income`, `salary_per_edu` and others
-  - classification model for predicting `economic_class` (Random Forest with cross-validation)
-  - evaluation metrics: Accuracy, Precision, Recall, F1, Confusion Matrix, per-class metrics, MAE on the ordered classes
-  - K-Means clustering for population segmentation:
-    - testing several values of `k`
-    - selecting an “optimal” k using elbow-like behavior, pseudo R² and Silhouette score
-    - interpreting clusters as different household profiles (e.g. low-income/high-expense vs. high-income/high-savings)
-  - filling missing `economic_class` values using the trained model and re-running analysis on the completed dataset.
+Includes:
+- Loading the raw dataset into Spark
+- Handling empty / invalid values
+- Exploring key features: `salary`, `savings`, `expenses`, `education`, `economic_class`
+- Basic visualizations:
+  - `income_percentiles_histogram.png`
+  - `Avg_Years_Education_per_Income_Percentile_Group.png`
 
-- `UseCase_LLM_Insights.ipynb`  
-  Experimental notebook using a language model (LLM) to:
-  - generate natural language summaries of clustering/grouped data
-  - interpret economic patterns per income decile or cluster
-  - provide business-ready narrative insights from structured Spark output  
-  This notebook uses a pipeline of Spark → JSON → LLM to automate insight generation from raw statistics.
+---
+
+### 🔁 `etl_scala.ipynb`
+
+Scala Spark notebook focusing on ETL and profiling steps:
+
+- Checking column types and value ranges  
+- Gathering missing-value statistics  
+- Grouped aggregations using the Scala DataFrame API  
+
+Useful for comparing Scala vs. Python implementation of Spark logic.
+
+---
+
+### 📊 `row-sector-ana.ipynb`
+
+In-depth analysis of the dataset by income deciles and work sectors:
+
+- Splitting the population by income percentiles/deciles  
+- Aggregating by decile and sector (counts, means, etc.)  
+- Tracking how sector distribution changes across income groups  
+- Providing interpretability for economic and employment patterns
+
+---
+
+### 🧠 `UseCaseModle.ipynb`
+
+Primary notebook for modeling and use-case definition.
+
+Includes:
+- Feature engineering of behavioral and financial indicators:
+  - `expense_ratio`, `disposable_income`, `salary_per_edu`, etc.
+- Classification model (Random Forest) to predict `economic_class`
+- Evaluation metrics:
+  - Accuracy, Precision, Recall, F1, MAE, Confusion Matrix
+- K-Means clustering to segment household profiles:
+  - Tests multiple values of `k`
+  - Selects optimal cluster count using pseudo R² and Silhouette score
+- Fills missing `economic_class` values using model predictions
+
+---
+
+### 🤖 `UseCase_LLM_Insights.ipynb`
+
+Experimental notebook leveraging Language Models (LLMs) to:
+
+- Generate natural-language summaries from clustering/grouped outputs  
+- Explain economic behaviors and cluster patterns automatically  
+- Bridge structured data (Spark JSONs) with narrative insights  
+
+**Workflow**: `Spark ➝ JSON ➝ LLM ➝ Business Insights`
+
+---
+
+## 📁 Data & Model Output Structure
+
+---
+
+### 🔹 `data/`
+
+Contains the **raw structured dataset** used across notebooks:
+
+- `datasetN3.txt`: Pre-cleaned dataset with anonymized user records  
+- Features: salary, savings, education, expenses, etc.  
+- Loaded by both PySpark and Scala pipelines
+
+---
+
+### 🔹 `output/json/`
+
+Holds intermediate and final model outputs consumed by the LLM and analysis notebooks:
+
+- `cluster_sizes.json`: Cluster counts from K-Means  
+- `cluster_summary.json`: Summary statistics per cluster  
+- `salary_decile_sector_summary.json`: Sector distribution per income decile  
+- `sector_index_mapping.json`: Mapping between sector codes and full names  
+
+These files support:
+- Interpreting model results  
+- Visualizing economic patterns  
+- Generating text explanations using the LLM pipeline
+
+---
+
+🎯 **This structure helps separate raw data, modeling logic, and automated insights – enabling scalable and explainable analysis workflows.**
